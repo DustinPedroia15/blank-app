@@ -19,38 +19,50 @@ if not st.session_state.authenticated:
         st.error("Incorrect passcode.")
     st.stop()
 
-# ---------- FUNCTION TO FETCH AND PROCESS DATA ----------
+# ---------- 🔄 EDIT: FETCH AND FILTER FUNCTION (MULTI-API) ----------
 def generate_units_table(doc_nums_to_include):
-    url = "https://api.holded.com/api/invoicing/v1/documents/salesorder"
-
     headers = {
         "accept": "application/json",
         "key": api_key
     }
 
-    response = requests.get(url, headers=headers)
-    if response.status_code != 200:
-        raise Exception(f"API Error: {response.status_code} - {response.text}")
-        
-    data = response.json()
-    orders_df = pd.DataFrame(data)
+    urls = {
+        "Estimate": "https://api.holded.com/api/invoicing/v1/documents/estimate",
+        "Proforma": "https://api.holded.com/api/invoicing/v1/documents/proform",
+        "SalesOrder": "https://api.holded.com/api/invoicing/v1/documents/salesorder"
+    }
 
-    # 🔠 Convert both input and dataset docNumbers to lowercase for case-insensitive match
-    orders_df['docNumber'] = orders_df['docNumber'].str.lower()
-    doc_nums_to_include = [doc.lower() for doc in doc_nums_to_include]
+    all_dfs = []
+    for label, url in urls.items():
+        response = requests.get(url, headers=headers)
+        if response.status_code != 200:
+            raise Exception(f"API Error ({label}): {response.status_code} - {response.text}")
+        df = pd.DataFrame(response.json())
+        df['source'] = label  # optional tagging
+        all_dfs.append(df)
 
-    filtered_orders = orders_df[orders_df['docNumber'].isin(doc_nums_to_include)]
+    # 🔄 Convert both input and dataset docNumbers to lowercase for case-insensitive match
+    doc_nums_to_include = [doc.strip().lower() for doc in doc_nums_to_include]
 
+    # 🔄 Combine and filter
+    filtered_rows = []
+    for df in all_dfs:
+        df['docNumber'] = df['docNumber'].str.lower()
+        filtered = df[df['docNumber'].isin(doc_nums_to_include)]
+        filtered_rows.append(filtered)
+
+    # 🔄 Flatten
     records = []
-    for _, order in filtered_orders.iterrows():
-        docnum = order['docNumber']
-        for item in order.get('products', []):
-            records.append({
-                'SKU': item.get('sku', ''),
-                'Product': item.get('name', ''),
-                'Quantity': item.get('units', 0),
-                'Order': docnum
-            })
+    for df in filtered_rows:
+        for _, order in df.iterrows():
+            docnum = order['docNumber']
+            for item in order.get('products', []):
+                records.append({
+                    'SKU': item.get('sku', ''),
+                    'Product': item.get('name', ''),
+                    'Quantity': item.get('units', 1),
+                    'Order': docnum
+                })
 
     df = pd.DataFrame(records)
 
@@ -76,11 +88,11 @@ st.set_page_config(page_title="Informe de Unidades por Pedido", layout="wide")
 st.title("📦 Informe de Unidades por Pedido")
 
 st.markdown("""
-Ingrese uno o más **números de documento de pedido** (por ejemplo: Wix250196, SO250066).  
+Ingrese uno o más **números de documento de pedido** (por ejemplo: Wix250196, SO250066, PRO250123).  
 La app mostrará los productos, SKUs y cantidades por pedido, incluyendo un total.
 """)
 
-doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066")
+doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250123")
 
 if st.button("Generar Informe") or doc_numbers:
     doc_list = [doc.strip() for doc in doc_numbers.split(",") if doc.strip()]
@@ -95,6 +107,10 @@ if st.button("Generar Informe") or doc_numbers:
             else:
                 st.success("¡Informe generado con éxito!")
                 st.dataframe(df_result, use_container_width=True)
+
+                # 🔄 Optional: download CSV
+                csv = df_result.to_csv(index=False).encode("utf-8-sig")
+                st.download_button("📥 Descargar CSV", data=csv, file_name="unidades_por_pedido.csv", mime="text/csv")
+
         except Exception as e:
             st.error(f"Ocurrió un error al obtener los datos: {e}")
-
