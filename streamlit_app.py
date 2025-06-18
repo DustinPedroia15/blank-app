@@ -19,7 +19,51 @@ if not st.session_state.authenticated:
         st.error("Incorrect passcode.")
     st.stop()
 
-# ---------- 🔄 EDIT: FETCH AND FILTER FUNCTION (MULTI-API) ----------
+# ---------- Holded product stock helpers ----------
+
+BASE_URL  = "https://api.holded.com/api/invoicing/v1/products"
+HEADERS   = {"accept": "application/json", "key": api_key}
+PAGE_SIZE = 100
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_all_products():
+    """Retrieve all products from Holded with simple pagination."""
+    all_products = []
+    page = 1
+
+    while True:
+        resp = requests.get(
+            BASE_URL,
+            headers=HEADERS,
+            params={"page": page, "limit": PAGE_SIZE}
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        chunk = data.get("data", data) if isinstance(data, dict) else data
+        if not chunk:
+            break
+        all_products.extend(chunk)
+        if len(chunk) < PAGE_SIZE:
+            break
+        page += 1
+
+    return all_products
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def build_sku_to_stock():
+    """Return dict mapping SKU → current available stock."""
+    sku_to_stock = {}
+    for product in fetch_all_products():
+        sku   = product.get("sku")
+        stock = product.get("stock")
+        if sku:
+            sku_to_stock[sku] = stock
+    return sku_to_stock
+
+SKU_TO_STOCK = build_sku_to_stock()
+
+# ---------- 🔄 FETCH AND FILTER FUNCTION (MULTI-API) ----------
+
 def generate_units_table(doc_nums_to_include):
     headers = {
         "accept": "application/json",
@@ -47,6 +91,8 @@ def generate_units_table(doc_nums_to_include):
     input_to_api_map = {}
     filtered_rows = []
     for df in all_dfs:
+        if df.empty:
+            continue
         df["docNumber_lower"] = df["docNumber"].str.lower()
         matches = df[df["docNumber_lower"].isin(input_doc_nums_lc)]
 
@@ -73,11 +119,10 @@ def generate_units_table(doc_nums_to_include):
     df = pd.DataFrame(records)
 
     # Determine which original-cased docNumbers we have
-    api_doc_numbers = list(input_to_api_map.values())
     missing_docs = [doc for doc in doc_nums_to_include if doc.strip().lower() not in input_to_api_map]
 
     if df.empty:
-        return pd.DataFrame(columns=["SKU", "Product", "Total"] + doc_nums_to_include)
+        return pd.DataFrame(columns=["SKU", "Product", "Total", "Stock Disponible", "Diferencia"] + doc_nums_to_include)
 
     pivot = df.pivot_table(index=["SKU", "Product"],
                            columns="Order",
@@ -89,7 +134,7 @@ def generate_units_table(doc_nums_to_include):
     for doc in missing_docs:
         pivot[doc] = 0
 
-    # Reorder columns: Total + in order of user input, but using API casing where available
+    # Reorder columns: in order of user input, but using API casing where available
     ordered_columns = []
     for doc in doc_nums_to_include:
         doc_lc = doc.strip().lower()
@@ -97,18 +142,34 @@ def generate_units_table(doc_nums_to_include):
         if corrected in pivot.columns:
             ordered_columns.append(corrected)
 
+    # Calculate totals per SKU across provided docs
     pivot["Total"] = pivot[ordered_columns].sum(axis=1)
-    pivot = pivot[ordered_columns + ["Total"]]
+
+    # Map current stock
+    pivot["Stock Disponible"] = pivot.index.get_level_values("SKU").map(SKU_TO_STOCK).fillna(0)
+
+    # Stock difference
+    def diff_label(stock, total):
+        delta = stock - total
+        return f"{delta} INSUFICIENTE" if delta < 0 else delta
+
+    pivot["Diferencia"] = pivot.apply(lambda r: diff_label(r["Stock Disponible"], r["Total"]), axis=1)
+
+    # Final column order
+    final_cols = ordered_columns + ["Total", "Stock Disponible", "Diferencia"]
+    pivot = pivot[final_cols]
+
     pivot.reset_index(inplace=True)
     return pivot
 
 # ---------- STREAMLIT UI ----------
+
 st.set_page_config(page_title="Informe de Unidades por DocNumber", layout="wide")
 st.title("📦 Informe de Unidades por DocNumber")
 
 st.markdown("""
 Ingrese uno o más **números de documento** (por ejemplo: Wix250196, SO250066, PRO250070).  
-La app mostrará los productos, SKUs y cantidades por documento, incluyendo un total.
+La app mostrará los productos, SKUs y cantidades por documento, incluyendo un total, el stock disponible y la diferencia.
 """)
 
 doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250070")
@@ -118,18 +179,19 @@ if st.button("Generar Informe") or doc_numbers:
 
     if not doc_list:
         st.warning("Por favor, introduzca al menos un número de documento válido.")
-    else:
-        try:
-            df_result = generate_units_table(doc_list)
-            if df_result.empty:
-                st.warning("No se encontraron productos para los documentos ingresados.")
-            else:
-                st.success("¡Informe generado con éxito!")
-                st.dataframe(df_result, use_container_width=True)
+        st.stop()
 
-                # 🔄 Optional: download CSV
-                csv = df_result.to_csv(index=False).encode("utf-8-sig")
-                st.download_button("📥 Descargar CSV", data=csv, file_name="unidades_por_documento.csv", mime="text/csv")
+    try:
+        df_result = generate_units_table(doc_list)
+        if df_result.empty:
+            st.warning("No se encontraron productos para los documentos ingresados.")
+        else:
+            st.success("¡Informe generado con éxito!")
+            st.dataframe(df_result, use_container_width=True)
 
-        except Exception as e:
-            st.error(f"Ocurrió un error al obtener los datos: {e}")
+            # 🔄 Optional: download CSV
+            csv = df_result.to_csv(index=False).encode("utf-8-sig")
+            st.download_button("📥 Descargar CSV", data=csv, file_name="unidades_por_documento.csv", mime="text/csv")
+
+    except Exception as e:
+        st.error(f"Ocurrió un error al obtener los datos: {e}")
