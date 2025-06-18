@@ -38,47 +38,57 @@ def generate_units_table(doc_nums_to_include):
         if response.status_code != 200:
             raise Exception(f"API Error ({label}): {response.status_code} - {response.text}")
         df = pd.DataFrame(response.json())
-        df['source'] = label  # optional tagging
+        df['source'] = label
         all_dfs.append(df)
 
-    # 🔄 Convert both input and dataset docNumbers to lowercase for case-insensitive match
-    doc_nums_to_include = [doc.strip().lower() for doc in doc_nums_to_include]
+    # Build input doc mapping (lowercased for matching)
+    input_doc_nums_lc = [doc.strip().lower() for doc in doc_nums_to_include]
 
-    # 🔄 Combine and filter
+    # Gather all matching orders and keep original casing from the API
     filtered_rows = []
+    found_docs = set()
     for df in all_dfs:
-        df['docNumber'] = df['docNumber'].str.lower()
-        filtered = df[df['docNumber'].isin(doc_nums_to_include)]
-        filtered_rows.append(filtered)
+        df["docNumber_lower"] = df["docNumber"].str.lower()
+        matches = df[df["docNumber_lower"].isin(input_doc_nums_lc)]
+        filtered_rows.append(matches)
+        found_docs.update(matches["docNumber"].tolist())  # use original casing
 
-    # 🔄 Flatten
+    # Flatten records
     records = []
     for df in filtered_rows:
         for _, order in df.iterrows():
-            docnum = order['docNumber']
-            for item in order.get('products', []):
+            docnum_original = order["docNumber"]
+            for item in order.get("products", []):
                 records.append({
                     'SKU': item.get('sku', ''),
                     'Product': item.get('name', ''),
                     'Quantity': item.get('units', 1),
-                    'Order': docnum
+                    'Order': docnum_original
                 })
 
     df = pd.DataFrame(records)
 
+    # Determine original docNumbers (from API) for pivot headers
+    all_order_columns = list(found_docs)
+    missing_orders = [doc for doc in doc_nums_to_include if doc not in all_order_columns]
+
     if df.empty:
         return pd.DataFrame(columns=["SKU", "Product", "Total"] + doc_nums_to_include)
 
-    pivot = df.pivot_table(index=["SKU", "Product"], 
-                           columns="Order", 
-                           values="Quantity", 
-                           aggfunc="sum", 
+    pivot = df.pivot_table(index=["SKU", "Product"],
+                           columns="Order",
+                           values="Quantity",
+                           aggfunc="sum",
                            fill_value=0)
 
-    pivot["Total"] = pivot.sum(axis=1)
+    # Add missing orders with 0s
+    for doc in missing_orders:
+        pivot[doc] = 0
 
-    ordered_columns = ["Total"] + [col for col in doc_nums_to_include if col in pivot.columns]
-    pivot = pivot[ordered_columns]
+    # Final column ordering
+    ordered_columns = [doc for doc in doc_nums_to_include if doc in pivot.columns]
+    pivot["Total"] = pivot[ordered_columns].sum(axis=1)
+    pivot = pivot[["Total"] + ordered_columns]
 
     pivot.reset_index(inplace=True)
     return pivot
@@ -88,11 +98,11 @@ st.set_page_config(page_title="Informe de Unidades por Pedido", layout="wide")
 st.title("📦 Informe de Unidades por Pedido")
 
 st.markdown("""
-Ingrese uno o más **números de documento de pedido** (por ejemplo: Wix250196, SO250066, PRO250123).  
+Ingrese uno o más **números de documento de pedido** (por ejemplo: Wix250196, SO250066, PRO250070).  
 La app mostrará los productos, SKUs y cantidades por pedido, incluyendo un total.
 """)
 
-doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250123")
+doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250070")
 
 if st.button("Generar Informe") or doc_numbers:
     doc_list = [doc.strip() for doc in doc_numbers.split(",") if doc.strip()]
