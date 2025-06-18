@@ -154,7 +154,7 @@ def generate_units_table(doc_nums_to_include):
     def calc_diferencia(row):
         try:
             diff = row["Stock Disponible"] - row["Total"]
-            return f"{diff} INSUFICIENTE" if diff < 0 else diff
+            return f"{diff} STOCK INSUFICIENTE" if diff < 0 else diff
         except:
             return None
 
