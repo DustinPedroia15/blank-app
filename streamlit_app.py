@@ -77,10 +77,6 @@ def generate_units_table(doc_nums_to_include):
 
     pivot["Total"] = pivot.sum(axis=1)
 
-    # Order columns: Total first, then the original-cased docNumbers (in user input order)
-    ordered_columns = ["Total"] + [doc for doc in input_doc_map.values() if doc in pivot.columns]
-    pivot = pivot[ordered_columns]
-
     pivot.reset_index(inplace=True)
     return pivot
 
