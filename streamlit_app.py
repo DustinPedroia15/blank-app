@@ -94,11 +94,11 @@ def generate_units_table(doc_nums_to_include):
     return pivot
 
 # ---------- STREAMLIT UI ----------
-st.set_page_config(page_title="Informe de Unidades por Pedido", layout="wide")
+st.set_page_config(page_title="Informe de Unidades por DocNumber", layout="wide")
 st.title("📦 Informe de Unidades por Pedido")
 
 st.markdown("""
-Ingrese uno o más **números de documento de pedido** (por ejemplo: Wix250196, SO250066, PRO250070).  
+Ingrese uno o más **números de documento** (por ejemplo: Wix250196, SO250066, PRO250070).  
 La app mostrará los productos, SKUs y cantidades por pedido, incluyendo un total.
 """)
 
