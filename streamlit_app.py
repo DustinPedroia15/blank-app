@@ -33,44 +33,48 @@ def generate_units_table(doc_nums_to_include):
     }
 
     all_dfs = []
-    for label, url in urls.items():
+    for url in urls.values():
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            raise Exception(f"API Error ({label}): {response.status_code} - {response.text}")
+            raise Exception(f"API Error: {response.status_code} - {response.text}")
         df = pd.DataFrame(response.json())
-        df['source'] = label
         all_dfs.append(df)
 
-    # Build input doc mapping (lowercased for matching)
+    # Lowercase input list for comparison
     input_doc_nums_lc = [doc.strip().lower() for doc in doc_nums_to_include]
 
-    # Gather all matching orders and keep original casing from the API
+    # Track matches from API using original casing
+    input_to_api_map = {}
     filtered_rows = []
-    found_docs = set()
     for df in all_dfs:
         df["docNumber_lower"] = df["docNumber"].str.lower()
         matches = df[df["docNumber_lower"].isin(input_doc_nums_lc)]
-        filtered_rows.append(matches)
-        found_docs.update(matches["docNumber"].tolist())  # use original casing
 
-    # Flatten records
+        for _, row in matches.iterrows():
+            user_input = next((d for d in input_doc_nums_lc if d == row["docNumber_lower"]), None)
+            if user_input and user_input not in input_to_api_map:
+                input_to_api_map[user_input] = row["docNumber"]  # save original casing
+
+        filtered_rows.append(matches)
+
+    # Flatten product records
     records = []
     for df in filtered_rows:
         for _, order in df.iterrows():
-            docnum_original = order["docNumber"]
+            docnum = order["docNumber"]
             for item in order.get("products", []):
                 records.append({
-                    'SKU': item.get('sku', ''),
-                    'Product': item.get('name', ''),
-                    'Quantity': item.get('units', 1),
-                    'Order': docnum_original
+                    "SKU": item.get("sku", ""),
+                    "Product": item.get("name", ""),
+                    "Quantity": item.get("units", 1),
+                    "Order": docnum
                 })
 
     df = pd.DataFrame(records)
 
-    # Determine original docNumbers (from API) for pivot headers
-    all_order_columns = list(found_docs)
-    missing_orders = [doc for doc in doc_nums_to_include if doc not in all_order_columns]
+    # Determine which original-cased docNumbers we have
+    api_doc_numbers = list(input_to_api_map.values())
+    missing_docs = [doc for doc in doc_nums_to_include if doc.strip().lower() not in input_to_api_map]
 
     if df.empty:
         return pd.DataFrame(columns=["SKU", "Product", "Total"] + doc_nums_to_include)
@@ -81,15 +85,20 @@ def generate_units_table(doc_nums_to_include):
                            aggfunc="sum",
                            fill_value=0)
 
-    # Add missing orders with 0s
-    for doc in missing_orders:
+    # Add missing docNumber columns with 0s
+    for doc in missing_docs:
         pivot[doc] = 0
 
-    # Final column ordering
-    ordered_columns = [doc for doc in doc_nums_to_include if doc in pivot.columns]
+    # Reorder columns: Total + in order of user input, but using API casing where available
+    ordered_columns = []
+    for doc in doc_nums_to_include:
+        doc_lc = doc.strip().lower()
+        corrected = input_to_api_map.get(doc_lc, doc)  # fallback to user input if not matched
+        if corrected in pivot.columns:
+            ordered_columns.append(corrected)
+
     pivot["Total"] = pivot[ordered_columns].sum(axis=1)
     pivot = pivot[["Total"] + ordered_columns]
-
     pivot.reset_index(inplace=True)
     return pivot
 
