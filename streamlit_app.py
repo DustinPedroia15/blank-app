@@ -160,6 +160,7 @@ def generate_units_table(doc_nums_to_include):
 
     pivot["Diferencia"] = pivot.apply(calc_diferencia, axis=1)
 
+    pivot = pivot[pivot["SKU"].astype(str).str.strip() != "0"]
     return pivot
 
 # ---------- STREAMLIT UI ----------
