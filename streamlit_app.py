@@ -84,26 +84,21 @@ def generate_units_table(doc_nums_to_include):
         df = pd.DataFrame(response.json())
         all_dfs.append(df)
 
-    # Lowercase input list for comparison
     input_doc_nums_lc = [doc.strip().lower() for doc in doc_nums_to_include]
 
-    # Track matches from API using original casing
     input_to_api_map = {}
     filtered_rows = []
     for df in all_dfs:
-        if df.empty:
-            continue
         df["docNumber_lower"] = df["docNumber"].str.lower()
         matches = df[df["docNumber_lower"].isin(input_doc_nums_lc)]
 
         for _, row in matches.iterrows():
             user_input = next((d for d in input_doc_nums_lc if d == row["docNumber_lower"]), None)
             if user_input and user_input not in input_to_api_map:
-                input_to_api_map[user_input] = row["docNumber"]  # save original casing
+                input_to_api_map[user_input] = row["docNumber"]
 
         filtered_rows.append(matches)
 
-    # Flatten product records
     records = []
     for df in filtered_rows:
         for _, order in df.iterrows():
@@ -117,12 +112,11 @@ def generate_units_table(doc_nums_to_include):
                 })
 
     df = pd.DataFrame(records)
-
-    # Determine which original-cased docNumbers we have
+    api_doc_numbers = list(input_to_api_map.values())
     missing_docs = [doc for doc in doc_nums_to_include if doc.strip().lower() not in input_to_api_map]
 
     if df.empty:
-        return pd.DataFrame(columns=["SKU", "Product", "Total", "Stock Disponible", "Diferencia"] + doc_nums_to_include)
+        return pd.DataFrame(columns=["SKU", "Product", "Total"] + doc_nums_to_include)
 
     pivot = df.pivot_table(index=["SKU", "Product"],
                            columns="Order",
@@ -130,36 +124,42 @@ def generate_units_table(doc_nums_to_include):
                            aggfunc="sum",
                            fill_value=0)
 
-    # Add missing docNumber columns with 0s
     for doc in missing_docs:
         pivot[doc] = 0
 
-    # Reorder columns: in order of user input, but using API casing where available
     ordered_columns = []
     for doc in doc_nums_to_include:
         doc_lc = doc.strip().lower()
-        corrected = input_to_api_map.get(doc_lc, doc)  # fallback to user input if not matched
+        corrected = input_to_api_map.get(doc_lc, doc)
         if corrected in pivot.columns:
             ordered_columns.append(corrected)
 
-    # Calculate totals per SKU across provided docs
     pivot["Total"] = pivot[ordered_columns].sum(axis=1)
-
-    # Map current stock
-    pivot["Stock Disponible"] = pivot.index.get_level_values("SKU").map(SKU_TO_STOCK).fillna(0)
-
-    # Stock difference
-    def diff_label(stock, total):
-        delta = stock - total
-        return f"{delta} INSUFICIENTE" if delta < 0 else delta
-
-    pivot["Diferencia"] = pivot.apply(lambda r: diff_label(r["Stock Disponible"], r["Total"]), axis=1)
-
-    # Final column order
-    final_cols = ordered_columns + ["Total", "Stock Disponible", "Diferencia"]
-    pivot = pivot[final_cols]
-
+    pivot = pivot[ordered_columns + ["Total"]]
     pivot.reset_index(inplace=True)
+
+    # --- Fetch product data for stock values ---
+    all_products = fetch_all_products()
+    sku_to_stock = {}
+    for product in all_products:
+        sku = product.get("sku")
+        stock = product.get("stock")
+        if sku:
+            sku_to_stock[sku] = stock
+
+    # --- Add Stock Disponible column ---
+    pivot["Stock Disponible"] = pivot["SKU"].map(sku_to_stock)
+
+    # --- Add Diferencia column ---
+    def calc_diferencia(row):
+        try:
+            diff = row["Stock Disponible"] - row["Total"]
+            return f"{diff} INSUFICIENTE" if diff < 0 else diff
+        except:
+            return None
+
+    pivot["Diferencia"] = pivot.apply(calc_diferencia, axis=1)
+
     return pivot
 
 # ---------- STREAMLIT UI ----------
