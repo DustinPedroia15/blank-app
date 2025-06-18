@@ -38,36 +38,36 @@ def generate_units_table(doc_nums_to_include):
         if response.status_code != 200:
             raise Exception(f"API Error ({label}): {response.status_code} - {response.text}")
         df = pd.DataFrame(response.json())
-        df['source'] = label
+        df['source'] = label  # optional tagging
         all_dfs.append(df)
 
-    # Map lowercase doc numbers to original casing
-    input_doc_map = {doc.strip().lower(): doc.strip() for doc in doc_nums_to_include}
-    input_doc_nums_lc = list(input_doc_map.keys())
+    # 🔄 Convert both input and dataset docNumbers to lowercase for case-insensitive match
+    doc_nums_to_include = [doc.strip().lower() for doc in doc_nums_to_include]
 
+    # 🔄 Combine and filter
     filtered_rows = []
     for df in all_dfs:
-        df["docNumber_lower"] = df["docNumber"].str.lower()
-        filtered = df[df["docNumber_lower"].isin(input_doc_nums_lc)]
+        df['docNumber'] = df['docNumber'].str.lower()
+        filtered = df[df['docNumber'].isin(doc_nums_to_include)]
         filtered_rows.append(filtered)
 
-    # Extract product records with original doc number
+    # 🔄 Flatten
     records = []
     for df in filtered_rows:
         for _, order in df.iterrows():
-            docnum_original = order["docNumber"]  # Keep original casing
-            for item in order.get("products", []):
+            docnum = order['docNumber']
+            for item in order.get('products', []):
                 records.append({
                     'SKU': item.get('sku', ''),
                     'Product': item.get('name', ''),
                     'Quantity': item.get('units', 1),
-                    'Order': docnum_original  # Preserve original casing for pivot
+                    'Order': docnum
                 })
 
     df = pd.DataFrame(records)
 
     if df.empty:
-        return pd.DataFrame(columns=["SKU", "Product", "Total"] + list(input_doc_map.values()))
+        return pd.DataFrame(columns=["SKU", "Product", "Total"] + doc_nums_to_include)
 
     pivot = df.pivot_table(index=["SKU", "Product"], 
                            columns="Order", 
@@ -76,7 +76,8 @@ def generate_units_table(doc_nums_to_include):
                            fill_value=0)
 
     pivot["Total"] = pivot.sum(axis=1)
-    ordered_columns = [doc for doc in input_doc_map.values() if doc in pivot.columns] + ["Total"]
+
+    ordered_columns = ["Total"] + [col for col in doc_nums_to_include if col in pivot.columns]
     pivot = pivot[ordered_columns]
 
     pivot.reset_index(inplace=True)
