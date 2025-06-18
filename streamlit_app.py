@@ -69,7 +69,7 @@ def generate_units_table(doc_nums_to_include):
 
 # ---------- STREAMLIT UI ----------
 st.set_page_config(page_title="Units Per Order Viewer", layout="wide")
-st.title("📦 Units Per Order Report")
+st.title("Informe de Unidades por Pedido")
 
 st.markdown("""
 Enter one or more **Sales Order Document Numbers** (e.g., Wix250196, SO250066).  
