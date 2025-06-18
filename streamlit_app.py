@@ -35,6 +35,10 @@ def generate_units_table(doc_nums_to_include):
     data = response.json()
     orders_df = pd.DataFrame(data)
 
+    # 🔠 Convert both input and dataset docNumbers to lowercase for case-insensitive match
+    orders_df['docNumber'] = orders_df['docNumber'].str.lower()
+    doc_nums_to_include = [doc.lower() for doc in doc_nums_to_include]
+
     filtered_orders = orders_df[orders_df['docNumber'].isin(doc_nums_to_include)]
 
     records = []
@@ -68,28 +72,29 @@ def generate_units_table(doc_nums_to_include):
     return pivot
 
 # ---------- STREAMLIT UI ----------
-st.set_page_config(page_title="Units Per Order Viewer", layout="wide")
-st.title("Informe de Unidades por Pedido")
+st.set_page_config(page_title="Informe de Unidades por Pedido", layout="wide")
+st.title("📦 Informe de Unidades por Pedido")
 
 st.markdown("""
-Enter one or more **Sales Order Document Numbers** (e.g., Wix250196, SO250066).  
-The app will fetch product SKUs, names, and quantities from Holded, displaying totals and per-order breakdown.
+Ingrese uno o más **números de documento de pedido** (por ejemplo: Wix250196, SO250066).  
+La app mostrará los productos, SKUs y cantidades por pedido, incluyendo un total.
 """)
 
-doc_numbers = st.text_input("Document Numbers (comma-separated):", placeholder="e.g. Wix250196, SO250066")
+doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066")
 
-if st.button("Generate Report") or doc_numbers:
+if st.button("Generar Informe") or doc_numbers:
     doc_list = [doc.strip() for doc in doc_numbers.split(",") if doc.strip()]
 
     if not doc_list:
-        st.warning("Please enter at least one valid document number.")
+        st.warning("Por favor, introduzca al menos un número de documento válido.")
     else:
         try:
             df_result = generate_units_table(doc_list)
             if df_result.empty:
-                st.warning("No products found for the given document numbers.")
+                st.warning("No se encontraron productos para los documentos ingresados.")
             else:
-                st.success("Report generated successfully!")
+                st.success("¡Informe generado con éxito!")
                 st.dataframe(df_result, use_container_width=True)
         except Exception as e:
-            st.error(f"An error occurred while fetching data: {e}")
+            st.error(f"Ocurrió un error al obtener los datos: {e}")
+
