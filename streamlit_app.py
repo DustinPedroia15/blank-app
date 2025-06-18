@@ -98,7 +98,7 @@ def generate_units_table(doc_nums_to_include):
             ordered_columns.append(corrected)
 
     pivot["Total"] = pivot[ordered_columns].sum(axis=1)
-    pivot = pivot[["Total"] + ordered_columns]
+    pivot = pivot[ordered_columns + ["Total"]]
     pivot.reset_index(inplace=True)
     return pivot
 
