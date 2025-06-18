@@ -95,11 +95,11 @@ def generate_units_table(doc_nums_to_include):
 
 # ---------- STREAMLIT UI ----------
 st.set_page_config(page_title="Informe de Unidades por DocNumber", layout="wide")
-st.title("📦 Informe de Unidades por Pedido")
+st.title("📦 Informe de Unidades por DocNumber")
 
 st.markdown("""
 Ingrese uno o más **números de documento** (por ejemplo: Wix250196, SO250066, PRO250070).  
-La app mostrará los productos, SKUs y cantidades por pedido, incluyendo un total.
+La app mostrará los productos, SKUs y cantidades por documento, incluyendo un total.
 """)
 
 doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250070")
@@ -120,7 +120,7 @@ if st.button("Generar Informe") or doc_numbers:
 
                 # 🔄 Optional: download CSV
                 csv = df_result.to_csv(index=False).encode("utf-8-sig")
-                st.download_button("📥 Descargar CSV", data=csv, file_name="unidades_por_pedido.csv", mime="text/csv")
+                st.download_button("📥 Descargar CSV", data=csv, file_name="unidades_por_documento.csv", mime="text/csv")
 
         except Exception as e:
             st.error(f"Ocurrió un error al obtener los datos: {e}")
