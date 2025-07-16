@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import requests
+import io
 
 # ---------- AUTHENTICATION ----------
 api_key = st.secrets["HOLDED_API_KEY"]
@@ -193,6 +194,20 @@ if st.button("Generar Informe") or doc_numbers:
             # 🔄 Optional: download CSV
             csv = df_result.to_csv(index=False).encode("utf-8-sig")
             st.download_button("📥 Descargar CSV", data=csv, file_name="unidades_por_documento.csv", mime="text/csv")
-
+            
+            filename="unidades_por_documento.xlsx"
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                df_result.to_excel(writer, index=False, sheet_name='Sheet1')
+            excel_buffer.seek(0)
+                
+                    # Download button
+            st.download_button(
+                label="📥 Download Excel (Stock)",
+                data=excel_buffer,
+                file_name=filename,
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+            
     except Exception as e:
         st.error(f"Ocurrió un error al obtener los datos: {e}")
