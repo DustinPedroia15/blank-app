@@ -200,7 +200,7 @@ if st.button("Generar Informe") or doc_numbers:
                 
                     # Download button
             st.download_button(
-                label="📥 Download Excel (Stock)",
+                label="📥 Download Excel",
                 data=excel_buffer,
                 file_name=filename,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
