@@ -191,10 +191,7 @@ if st.button("Generar Informe") or doc_numbers:
             st.success("¡Informe generado con éxito!")
             st.dataframe(df_result, use_container_width=True)
 
-            # 🔄 Optional: download CSV
-            csv = df_result.to_csv(index=False).encode("utf-8-sig")
-            st.download_button("📥 Descargar CSV", data=csv, file_name="unidades_por_documento.csv", mime="text/csv")
-            
+          
             filename="unidades_por_documento.xlsx"
             excel_buffer = io.BytesIO()
             with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
