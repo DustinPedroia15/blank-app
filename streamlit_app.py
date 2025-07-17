@@ -150,7 +150,7 @@ def generate_units_table(doc_nums_to_include):
 
     # --- Add Stock Disponible column ---
     pivot["Stock Disponible"] = pivot["SKU"].map(sku_to_stock)
-
+    pivot["Stock Disponible"] = pivot["Stock Disponible"] + pivot["Total"]
     # --- Add Diferencia column ---
     def calc_diferencia(row):
         diff = row["Stock Disponible"] - row["Total"]
@@ -172,7 +172,7 @@ st.set_page_config(page_title="Informe de Unidades por DocNumber", layout="wide"
 st.title("📦 Informe de Unidades por DocNumber")
 
 st.markdown("""
-Ingrese uno o más **números de documento** (por ejemplo: Wix250196, SO250066, PRO250070).  
+Ingrese uno o más **números de documento** de Presupuesto, Proforma, y Pedido (por ejemplo: Wix250196, SO250066, PRO250070).  
 La app mostrará los productos, SKUs y cantidades por documento, incluyendo un total, el stock disponible y la diferencia.
 """)
 
