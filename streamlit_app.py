@@ -157,7 +157,7 @@ def generate_units_table(doc_nums_to_include):
     def calc_diferencia(row):
         diff = row["Stock Disponible"] - row["Total"]
         if diff < 0:
-            return pd.Series([{abs(diff), None])
+            return pd.Series([abs(diff), None])
         else:
             return pd.Series([None, diff])
     
