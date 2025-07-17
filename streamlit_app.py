@@ -177,10 +177,10 @@ st.markdown("""
 Ingrese uno o más **números de documento** de Presupuesto, Proforma, y Pedido (por ejemplo: Wix250196, SO250066, PRO250070).  
 La app mostrará los productos, SKUs y cantidades por documento, incluyendo un total, el stock disponible y la diferencia.
 """)
-
-doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250070")
 if st.button("🔄 Refresh Data"):
     st.cache_data.clear()
+    
+doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250070")
     
 if st.button("Generar Informe") or doc_numbers:
     doc_list = [doc.strip() for doc in doc_numbers.split(",") if doc.strip()]
