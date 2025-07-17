@@ -153,14 +153,16 @@ def generate_units_table(doc_nums_to_include):
 
     # --- Add Diferencia column ---
     def calc_diferencia(row):
-        try:
-            diff = row["Stock Disponible"] - row["Total"]
-            return f"{diff} STOCK INSUFICIENTE" if diff < 0 else diff
-        except:
-            return None
-
-    pivot["Diferencia"] = pivot.apply(calc_diferencia, axis=1)
-
+        diff = row["Stock Disponible"] - row["Total"]
+        if diff < 0:
+            return pd.Series([f"Falta {abs(diff)}", None])
+        else:
+            return pd.Series([None, f"Extra {diff}"])
+    
+    # Apply the function and create two new columns
+    pivot[["Diferencia (Insuficiente)", "Diferencia Extra"]] = pivot.apply(calc_diferencia, axis=1)
+    
+    # Filter out rows where SKU is "0"
     pivot = pivot[pivot["SKU"].astype(str).str.strip() != "0"]
     return pivot
 
