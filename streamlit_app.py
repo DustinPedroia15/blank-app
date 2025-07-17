@@ -150,7 +150,7 @@ def generate_units_table(doc_nums_to_include):
 
     # --- Add Stock Disponible column ---
     pivot["Stock Disponible"] = pivot["SKU"].map(sku_to_stock)
-    pivot["Stock Disponible"] = pivot["Stock Disponible"] + pivot["Total"]
+    #pivot["Stock Disponible"] = pivot["Stock Disponible"] + pivot["Total"]
     # --- Add Diferencia column ---
     def calc_diferencia(row):
         diff = row["Stock Disponible"] - row["Total"]
