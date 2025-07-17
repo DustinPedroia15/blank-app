@@ -26,7 +26,7 @@ BASE_URL  = "https://api.holded.com/api/invoicing/v1/products"
 HEADERS   = {"accept": "application/json", "key": api_key}
 PAGE_SIZE = 100
 
-@st.cache_data(ttl=3600, show_spinner=True)
+@st.cache_data(ttl=25000, show_spinner=True)
 def fetch_all_products():
     """Retrieve all products from Holded with simple pagination."""
     all_products = []
@@ -50,7 +50,7 @@ def fetch_all_products():
 
     return all_products
 
-@st.cache_data(ttl=3600, show_spinner=True)
+@st.cache_data(ttl=25000, show_spinner=True)
 def build_sku_to_stock():
     """Return dict mapping SKU → current available stock."""
     sku_to_stock = {}
