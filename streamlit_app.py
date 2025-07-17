@@ -26,7 +26,7 @@ BASE_URL  = "https://api.holded.com/api/invoicing/v1/products"
 HEADERS   = {"accept": "application/json", "key": api_key}
 PAGE_SIZE = 100
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=True)
 def fetch_all_products():
     """Retrieve all products from Holded with simple pagination."""
     all_products = []
@@ -50,7 +50,7 @@ def fetch_all_products():
 
     return all_products
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=True)
 def build_sku_to_stock():
     """Return dict mapping SKU → current available stock."""
     sku_to_stock = {}
@@ -179,7 +179,9 @@ La app mostrará los productos, SKUs y cantidades por documento, incluyendo un t
 """)
 
 doc_numbers = st.text_input("Números de documento (separados por comas):", placeholder="e.g. Wix250196, SO250066, PRO250070")
-
+if st.button("🔄 Refresh Data"):
+    st.cache_data.clear()
+    
 if st.button("Generar Informe") or doc_numbers:
     doc_list = [doc.strip() for doc in doc_numbers.split(",") if doc.strip()]
 
