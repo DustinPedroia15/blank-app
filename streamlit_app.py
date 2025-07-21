@@ -165,7 +165,7 @@ def generate_units_table(doc_nums_to_include):
     pivot[["Stock Falta", "Stock Adicional"]] = pivot.apply(calc_diferencia, axis=1)
     
     # Filter out rows where SKU is "0"
-    pivot = pivot[pivot["SKU"].astype(str).str.strip() != "0"]
+    #pivot = pivot[pivot["SKU"].astype(str).str.strip() != "0"]
     return pivot
 
 # ---------- STREAMLIT UI ----------
