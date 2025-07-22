@@ -74,7 +74,8 @@ def generate_units_table(doc_nums_to_include):
     urls = {
         "Estimate": "https://api.holded.com/api/invoicing/v1/documents/estimate",
         "Proforma": "https://api.holded.com/api/invoicing/v1/documents/proform",
-        "SalesOrder": "https://api.holded.com/api/invoicing/v1/documents/salesorder"
+        "SalesOrder": "https://api.holded.com/api/invoicing/v1/documents/salesorder",
+        "Waybill": "https://api.holded.com/api/invoicing/v1/documents/waybill"
     }
 
     all_dfs = []
