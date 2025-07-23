@@ -151,7 +151,7 @@ def generate_units_table(doc_nums_to_include):
 
     # --- Add Stock Real column ---
     pivot["Stock Real"] = pivot["SKU"].map(sku_to_stock)
-    pivot["Stock Real"] = pivot["Stock Real"] + pivot["Total"]
+    pivot["Stock Real"] = pivot["Stock Real"] #+ pivot["Total"]
 
     
     # --- Add Diferencia column ---
